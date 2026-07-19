@@ -20,7 +20,10 @@ source $R2_SECRETS_FILE
 python manage.py fetch_podcast_episode 2
 ```
 
-The command streams the origin response to R2 without creating a local audio file.
+The command streams the origin response to R2 without creating a local audio file. Without an
+episode number it fetches the oldest episode missing from R2; the Fetch workflow does this daily.
+Until the `R2_URL` repository secret is set, `R2_URL` defaults to `off` and the command warns and
+exits without fetching.
 
 This project aims to catalog information about [Lynch syndrome](https://en.wikipedia.org/wiki/Lynch_syndrome), also known as DNA mismatch repair deficiency. This project is entirely AI generated.
 

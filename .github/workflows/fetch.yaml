@@ -1,0 +1,31 @@
+name: Fetch
+defaults:
+    run:
+        shell: bash --noprofile --norc -o errexit -o nounset -o pipefail -o xtrace {0}
+env:
+    # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    PATH: .venv/bin:/home/runner/.local/bin:/home/runner/.local/share/mise/shims:/usr/bin:/bin
+jobs:
+    fetch:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: jdx/mise-action@v3
+              with:
+                  experimental: true
+            - env:
+                  EPISODE_NUMBER: ${{ inputs.episode_number }}
+                  R2_URL: ${{ secrets.R2_URL || 'off' }}
+              run: python -m manage fetch_podcast_episode ${EPISODE_NUMBER:+"$EPISODE_NUMBER"}
+
+on: # yamllint disable-line rule:truthy
+    schedule:
+        - cron: '48 8 * * *' # daily, 08:48 UTC
+    workflow_dispatch:
+        inputs:
+            episode_number:
+                description: Chronological episode number; blank fetches the oldest missing
+                required: false
+
+run-name: Fetching on behalf of ${{ github.actor }}

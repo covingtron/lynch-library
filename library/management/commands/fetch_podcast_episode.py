@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
+from django.conf import settings
 from django.core.files import File
 from django.core.files.storage import storages
 from django.core.management.base import BaseCommand, CommandError
@@ -78,34 +79,37 @@ def parse_audio_url(document: bytes) -> str:
 class Command(BaseCommand):
     """Stream an episode into the podcast archive."""
 
-    help = 'Download an AliveandKickn episode by its chronological number'
+    help = 'Download an AliveandKickn episode by its chronological number; default oldest missing'
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        """Accept a chronological episode number and archive URL."""
-        parser.add_argument('episode_number', type=int)
+        """Accept an optional chronological episode number and archive URL."""
+        parser.add_argument('episode_number', nargs='?', type=int)
         parser.add_argument('--archive-url', default='https://aliveandkickn.libsyn.com/2019/12')
 
-    def handle(self, episode_number: int, archive_url: str, **_options: Any) -> None:
-        """Discover and stream the selected episode to R2."""
+    def handle(self, episode_number: int | None, archive_url: str, **_options: Any) -> None:
+        """Stream the selected episode, or the oldest one missing from R2."""
+        if settings.R2_URL.startswith('off'):
+            print('R2_URL is off; skipping podcast fetch')
+            return
         episode_links = list(reversed(parse_episode_links(read_url(archive_url))))
-        if episode_number < 1 or episode_number > len(episode_links):
+        if episode_number and not 1 <= episode_number <= len(episode_links):
             raise CommandError(
                 f'Episode number must be between 1 and {len(episode_links)} for {archive_url}'
             )
-        episode_url = episode_links[episode_number - 1]
-        audio_url = parse_audio_url(read_url(episode_url))
-        episode_path = urlparse(episode_url).path.strip('/')
-        archive_path = urlparse(archive_url).path.strip('/')
-        destination = '/'.join(
-            (
+        for number in [episode_number] if episode_number else range(1, len(episode_links) + 1):
+            episode_url = episode_links[number - 1]
+            audio_url = parse_audio_url(read_url(episode_url))
+            if urlparse(audio_url).scheme != 'https':
+                raise CommandError(f'Only HTTPS URLs are supported: {audio_url}')
+            destination = '/'.join((
                 urlparse(episode_url).hostname or '',
-                archive_path,
-                episode_path,
+                urlparse(archive_url).path.strip('/'),
+                urlparse(episode_url).path.strip('/'),
                 urlparse(audio_url).path.rsplit('/', 1)[-1],
-            )
-        )
-        if urlparse(audio_url).scheme != 'https':
-            raise CommandError(f'Only HTTPS URLs are supported: {audio_url}')
-        with closing(urlopen(audio_url)) as response:  # noqa: S310 -- scheme checked above
-            saved_destination = storages['library'].save(destination, File(response))
-        self.stdout.write(saved_destination)
+            ))
+            if storages['library'].exists(destination):
+                print(f'{destination} already archived')
+                continue
+            with closing(urlopen(audio_url)) as response:  # noqa: S310 -- scheme checked above
+                print(storages['library'].save(destination, File(response)))
+            return

@@ -1,9 +1,9 @@
 """Tests for fetching an episode from a Libsyn archive."""
 
-from io import BytesIO, StringIO
+from io import BytesIO
 
 from django.core.files import File
-from pytest import MonkeyPatch
+from pytest import CaptureFixture, MonkeyPatch
 from pytest_django.fixtures import SettingsWrapper
 
 from library.management.commands.fetch_podcast_episode import (
@@ -54,29 +54,30 @@ def patch_network_and_storage(
     )
 
 
-def test_fetch_second_episode(monkeypatch: MonkeyPatch, settings: SettingsWrapper):
+def test_fetch_second_episode(
+    monkeypatch: MonkeyPatch, settings: SettingsWrapper, capsys: CaptureFixture[str]
+):
     saved = {}
     patch_network_and_storage(monkeypatch, settings, saved)
-    stdout = StringIO()
-    Command(stdout=stdout).handle(episode_number=2, archive_url='https://example.com/2019/12')
+    Command().handle(episode_number=2, archive_url='https://example.com/2019/12')
     destination = 'example.com/2019/12/second/second.mp3'
     assert saved[destination] == b'audio two'
-    assert stdout.getvalue() == f'{destination}\n'
+    assert capsys.readouterr().out == f'{destination}\n'
 
 
-def test_fetch_oldest_missing_episode(monkeypatch: MonkeyPatch, settings: SettingsWrapper):
+def test_fetch_oldest_missing_episode(
+    monkeypatch: MonkeyPatch, settings: SettingsWrapper, capsys: CaptureFixture[str]
+):
     first = 'example.com/2019/12/first/first.mp3'
     saved = {first: b'audio one'}
     patch_network_and_storage(monkeypatch, settings, saved)
-    stdout = StringIO()
-    Command(stdout=stdout).handle(episode_number=None, archive_url='https://example.com/2019/12')
+    Command().handle(episode_number=None, archive_url='https://example.com/2019/12')
     destination = 'example.com/2019/12/second/second.mp3'
     assert saved[destination] == b'audio two'
-    assert stdout.getvalue() == f'{first} already archived\n{destination}\n'
+    assert capsys.readouterr().out == f'{first} already archived\n{destination}\n'
 
 
-def test_fetch_skips_when_r2_off(settings: SettingsWrapper):
+def test_fetch_skips_when_r2_off(settings: SettingsWrapper, capsys: CaptureFixture[str]):
     settings.R2_URL = 'off'
-    stderr = StringIO()
-    Command(stderr=stderr).handle(episode_number=None, archive_url='https://example.com/2019/12')
-    assert 'skipping' in stderr.getvalue()
+    Command().handle(episode_number=None, archive_url='https://example.com/2019/12')
+    assert 'skipping' in capsys.readouterr().out

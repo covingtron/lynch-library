@@ -89,7 +89,7 @@ class Command(BaseCommand):
     def handle(self, episode_number: int | None, archive_url: str, **_options: Any) -> None:
         """Stream the selected episode, or the oldest one missing from R2."""
         if settings.R2_URL.startswith('off'):
-            self.stderr.write(self.style.WARNING('R2_URL is off; skipping podcast fetch'))
+            print('R2_URL is off; skipping podcast fetch')
             return
         episode_links = list(reversed(parse_episode_links(read_url(archive_url))))
         if episode_number and not 1 <= episode_number <= len(episode_links):
@@ -108,8 +108,8 @@ class Command(BaseCommand):
                 urlparse(audio_url).path.rsplit('/', 1)[-1],
             ))
             if storages['library'].exists(destination):
-                self.stdout.write(f'{destination} already archived')
+                print(f'{destination} already archived')
                 continue
             with closing(urlopen(audio_url)) as response:  # noqa: S310 -- scheme checked above
-                self.stdout.write(storages['library'].save(destination, File(response)))
+                print(storages['library'].save(destination, File(response)))
             return

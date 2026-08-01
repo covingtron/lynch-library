@@ -1,11 +1,10 @@
-name: Fetch
+name: fetch
 defaults:
     run:
         shell: bash --noprofile --norc -o errexit -o nounset -o pipefail -o xtrace {0}
 env:
     # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    PATH: .venv/bin:/home/runner/.local/bin:/home/runner/.local/share/mise/shims:/usr/bin:/bin
 jobs:
     fetch:
         runs-on: ubuntu-latest
@@ -17,7 +16,9 @@ jobs:
             - env:
                   EPISODE_NUMBER: ${{ inputs.episode_number }}
                   R2_URL: ${{ secrets.R2_URL || 'off' }}
-              run: python -m manage fetch_podcast_episode ${EPISODE_NUMBER:+"$EPISODE_NUMBER"}
+              run: |
+                  .venv/bin/python -m manage fetch_podcast_episode \
+                      ${EPISODE_NUMBER:+"$EPISODE_NUMBER"}
 
 on: # yamllint disable-line rule:truthy
     schedule:

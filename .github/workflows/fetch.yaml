@@ -13,16 +13,18 @@ jobs:
             - uses: jdx/mise-action@v3
               with:
                   experimental: true
-            - env:
+            - name: fetch episode
+              env:
                   EPISODE_NUMBER: ${{ inputs.episode_number }}
                   R2_URL: ${{ secrets.R2_URL || 'off' }}
               run: |
-                  .venv/bin/python -m manage fetch_podcast_episode \
-                      ${EPISODE_NUMBER:+"$EPISODE_NUMBER"}
+                  # keep in sync with the schedule cron below
+                  .venv/bin/python -m manage fetch_podcast_episode --period-minutes=360 \
+                      ${EPISODE_NUMBER:+--episode-number "$EPISODE_NUMBER"}
 
 on: # yamllint disable-line rule:truthy
     schedule:
-        - cron: '48 8 * * *' # daily, 08:48 UTC
+        - cron: '48 */6 * * *' # 4 a day from 00:48 UTC; keep in sync with --period-minutes
     workflow_dispatch:
         inputs:
             episode_number:
